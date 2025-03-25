@@ -9,10 +9,16 @@ on:
       target-env:
         required: true
         type: string
+      target-app-env:
+        required: true
+        type: string
     outputs:
       env-options:
         description: "List of valid environments"
         value: ${{ jobs.pre-validate.outputs.env-options }}
+      app-env-options:
+        description: "List of valid target environments"
+        value: ${{ jobs.pre-validate.outputs.app-env-options }}
       clients-options:
         description: "List of valid clients"
         value: ${{ jobs.pre-validate.outputs.clients-options }}
@@ -22,6 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       env-options: ${{ steps.read-envs.outputs.environments }}
+      app-env-options: ${{ steps.read-envs.outputs.app-environments }}
       clients-options: ${{ steps.read-clients.outputs.clients }}
     steps:
       - name: Checkout workflow_configs repo
@@ -34,11 +41,25 @@ jobs:
         id: read-envs
         run: echo "environments=$(jq -c . workflow_configs/environments.json)" >> $GITHUB_OUTPUT
 
+      - name: Read environments
+        id: read-app-envs
+        run: echo "app_environments=$(jq -c . workflow_configs/app_environments.json)" >> $GITHUB_OUTPUT
+
       - name: Read clients
         id: read-clients
         run: echo "clients=$(jq -c . workflow_configs/clients.json)" >> $GITHUB_OUTPUT
 
+      - name: Validate target-app-env
+        if: ${{ steps.read-app-envs.outputs.app_environments != null }}
+        run: |
+          VALID_APP_ENVS='${{ steps.read-app-envs.outputs.app_environments }}'
+          if ! echo "$VALID_APP_ENVS" | jq -e --arg env "${{ inputs.target-app-env }}" 'contains([$env])' > /dev/null; then
+            echo "Error: target-app-env '${{ inputs.target-app-env }}' is not in valid environments: $VALID_APP_ENVS"
+            exit 1
+          fi
+
       - name: Validate target-env
+        if: ${{ steps.read-envs.outputs.environments != null }}
         run: |
           VALID_ENVS='${{ steps.read-envs.outputs.environments }}'
           if ! echo "$VALID_ENVS" | jq -e --arg env "${{ inputs.target-env }}" 'contains([$env])' > /dev/null; then
@@ -47,6 +68,7 @@ jobs:
           fi
 
       - name: Validate clients
+        if: ${{ steps.read-clients.outputs.clients != null }}
         run: |
           VALID_CLIENTS='${{ steps.read-clients.outputs.clients }}'
           if ! echo "$VALID_CLIENTS" | jq -e --arg env "${{ inputs.client }}" 'contains([$env])' > /dev/null; then
