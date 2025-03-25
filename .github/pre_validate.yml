@@ -1,0 +1,55 @@
+name: Pre-Validate Inputs
+
+on:
+  workflow_call:
+    inputs:
+      client:
+        required: true
+        type: string
+      target-env:
+        required: true
+        type: string
+    outputs:
+      env-options:
+        description: "List of valid environments"
+        value: ${{ jobs.pre-validate.outputs.env-options }}
+      clients-options:
+        description: "List of valid clients"
+        value: ${{ jobs.pre-validate.outputs.clients-options }}
+
+jobs:
+  pre-validate:
+    runs-on: ubuntu-latest
+    outputs:
+      env-options: ${{ steps.read-envs.outputs.environments }}
+      clients-options: ${{ steps.read-clients.outputs.clients }}
+    steps:
+      - name: Checkout workflow_configs repo
+        uses: actions/checkout@v4
+        with:
+          repository: ashkan-farivarmoheb/workflow_configs
+          path: workflow_configs
+
+      - name: Read environments
+        id: read-envs
+        run: echo "environments=$(jq -c . workflow_configs/environments.json)" >> $GITHUB_OUTPUT
+
+      - name: Read clients
+        id: read-clients
+        run: echo "clients=$(jq -c . workflow_configs/clients.json)" >> $GITHUB_OUTPUT
+
+      - name: Validate target-env
+        run: |
+          VALID_ENVS='${{ steps.read-envs.outputs.environments }}'
+          if ! echo "$VALID_ENVS" | jq -e --arg env "${{ inputs.target-env }}" 'contains([$env])' > /dev/null; then
+            echo "Error: target-env '${{ inputs.target-env }}' is not in valid environments: $VALID_ENVS"
+            exit 1
+          fi
+
+      - name: Validate clients
+        run: |
+          VALID_CLIENTS='${{ steps.read-clients.outputs.clients }}'
+          if ! echo "$VALID_CLIENTS" | jq -e --arg env "${{ inputs.client }}" 'contains([$env])' > /dev/null; then
+            echo "Error: client '${{ inputs.client }}' is not in valid clients: $VALID_CLIENTS"
+            exit 1
+          fi
