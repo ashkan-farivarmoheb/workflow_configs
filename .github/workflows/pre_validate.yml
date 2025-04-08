@@ -11,6 +11,8 @@ on:
       target-app-env:
         type: string
       service_version:
+        type: string
+      odoo_base_tag:
         type: string  
     outputs:
       env-options:
@@ -25,6 +27,9 @@ on:
       versions-options:
         description: "List of supported versions"
         value: ${{ jobs.pre-validate.outputs.supported-versions-options }}
+      odoo-base-tag-options:
+        description: "List of valid odoo base tags"
+        value: ${{ jobs.pre-validate.outputs.odoo-base-tag-options }}
 
 jobs:
   pre-validate:
@@ -34,6 +39,7 @@ jobs:
       app-env-options: ${{ steps.read-envs.outputs.app-environments }}
       clients-options: ${{ steps.read-clients.outputs.clients }}
       supported-versions-options: ${{ steps.read-supported-versions.outputs.supported_versions }}
+      odoo-base-tag-options: ${{ steps.read-odoo_base_tags.outputs.odoo_base_tags }}
     steps:
       - name: Checkout workflow_configs repo
         uses: actions/checkout@v4
@@ -56,6 +62,10 @@ jobs:
       - name: Read supported versions
         id: read-supported-versions
         run: echo "supported_versions=$(jq -c . workflow_configs/supported_versions.json)" >> $GITHUB_OUTPUT
+
+      - name: Read supported versions
+        id: read-odoo_base_tags
+        run: echo "odoo_base_tags=$(jq -c . workflow_configs/odoo_base_tags.json)" >> $GITHUB_OUTPUT
 
       - name: Validate target-app-env
         if: ${{ steps.read-app-envs.outputs.app_environments != null }}
@@ -90,5 +100,14 @@ jobs:
           SUPPORTED_VERSIONS='${{ steps.read-supported-versions.outputs.supported_versions }}'
           if ! echo "$SUPPORTED_VERSIONS" | jq -e --arg env "${{ inputs.service_version }}" 'contains([$env])' > /dev/null; then
             echo "Error: version '${{ inputs.service_version }}' is not a supported version: $SUPPORTED_VERSIONS"
+            exit 1
+          fi
+
+      - name: Validate supported versions
+        if: ${{ steps.read-odoo_base_tags.outputs.odoo_base_tags != null }}
+        run: |
+          ODOO_BASE_TAGS='${{ steps.read-odoo_base_tags.outputs.odoo_base_tags }}'
+          if ! echo "$ODOO_BASE_TAGS" | jq -e --arg env "${{ inputs.service_version }}" 'contains([$env])' > /dev/null; then
+            echo "Error: tag '${{ inputs.odoo_base_tag }}' is not a supported odoo base tag: $ODOO_BASE_TAGS"
             exit 1
           fi
