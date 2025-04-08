@@ -10,6 +10,8 @@ on:
         type: string
       target-app-env:
         type: string
+      service-version:
+        type: string  
     outputs:
       env-options:
         description: "List of valid environments"
@@ -39,13 +41,17 @@ jobs:
         id: read-envs
         run: echo "environments=$(jq -c . workflow_configs/environments.json)" >> $GITHUB_OUTPUT
 
-      - name: Read environments
+      - name: Read app environments
         id: read-app-envs
         run: echo "app_environments=$(jq -c . workflow_configs/app_environments.json)" >> $GITHUB_OUTPUT
 
       - name: Read clients
         id: read-clients
         run: echo "clients=$(jq -c . workflow_configs/clients.json)" >> $GITHUB_OUTPUT
+
+      - name: Read supported versions
+        id: read-supported-versions
+        run: echo "supported_versions=$(jq -c . workflow_configs/supported_versions.json)" >> $GITHUB_OUTPUT
 
       - name: Validate target-app-env
         if: ${{ steps.read-app-envs.outputs.app_environments != null }}
@@ -71,5 +77,14 @@ jobs:
           VALID_CLIENTS='${{ steps.read-clients.outputs.clients }}'
           if ! echo "$VALID_CLIENTS" | jq -e --arg env "${{ inputs.client }}" 'contains([$env])' > /dev/null; then
             echo "Error: client '${{ inputs.client }}' is not in valid clients: $VALID_CLIENTS"
+            exit 1
+          fi
+
+      - name: Validate supported versions
+        if: ${{ steps.read-clients.outputs.clients != null }}
+        run: |
+          SUPPORTED_VERSIONS='${{ steps.read-supported-versions.outputs.supported_versions }}'
+          if ! echo "$SUPPORTED_VERSIONS" | jq -e --arg env "${{ inputs.service-version }}" 'contains([$env])' > /dev/null; then
+            echo "Error: version '${{ inputs.service-version }}' is not a supported version: $SUPPORTED_VERSIONS"
             exit 1
           fi
