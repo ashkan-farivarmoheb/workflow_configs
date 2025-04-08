@@ -10,7 +10,7 @@ on:
         type: string
       target-app-env:
         type: string
-      service-version:
+      service_version:
         type: string  
     outputs:
       env-options:
@@ -22,6 +22,9 @@ on:
       clients-options:
         description: "List of valid clients"
         value: ${{ jobs.pre-validate.outputs.clients-options }}
+      versions-options:
+        description: "List of supported versions"
+        value: ${{ jobs.pre-validate.outputs.supported-versions-options }}
 
 jobs:
   pre-validate:
@@ -30,6 +33,7 @@ jobs:
       env-options: ${{ steps.read-envs.outputs.environments }}
       app-env-options: ${{ steps.read-envs.outputs.app-environments }}
       clients-options: ${{ steps.read-clients.outputs.clients }}
+      supported-versions-options: ${{ steps.read-supported-versions.outputs.supported_versions }}
     steps:
       - name: Checkout workflow_configs repo
         uses: actions/checkout@v4
@@ -81,10 +85,10 @@ jobs:
           fi
 
       - name: Validate supported versions
-        if: ${{ steps.read-clients.outputs.clients != null }}
+        if: ${{ steps.read-supported-versions.outputs.clients != null }}
         run: |
           SUPPORTED_VERSIONS='${{ steps.read-supported-versions.outputs.supported_versions }}'
-          if ! echo "$SUPPORTED_VERSIONS" | jq -e --arg env "${{ inputs.service-version }}" 'contains([$env])' > /dev/null; then
-            echo "Error: version '${{ inputs.service-version }}' is not a supported version: $SUPPORTED_VERSIONS"
+          if ! echo "$SUPPORTED_VERSIONS" | jq -e --arg env "${{ inputs.service_version }}" 'contains([$env])' > /dev/null; then
+            echo "Error: version '${{ inputs.service_version }}' is not a supported version: $SUPPORTED_VERSIONS"
             exit 1
           fi
